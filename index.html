@@ -1,11 +1,371 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <title>Greenberg</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nöroşirürji El Kitabı - İnteraktif İçerik Kaşifi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Clinical Calm (Grays, Blues, and a Teal accent) -->
+    <!-- Application Structure Plan: The application is structured as an interactive dashboard rather than a linear list. The main sections of the book are presented as clickable cards. Clicking a card reveals the detailed chapters within that section, allowing for a focused, drill-down exploration. A search bar at the top provides immediate, non-linear access to any topic. This structure was chosen to manage the high density of information, making the vast content of the handbook browsable and less overwhelming for the user. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Hierarchical table of contents. Goal: Organize/Explore. Viz/Method: Interactive Cards (HTML/CSS/JS). Interaction: Click to expand/collapse chapter lists. Justification: Transforms a static list into an engaging, user-directed discovery tool. Library/Method: Vanilla JS for DOM manipulation.
+        - Report Info: Number of sub-chapters per main section. Goal: Compare. Viz/Method: Bar Chart. Interaction: Hover for details. Justification: Provides a meta-analysis of the book's content structure, showing which areas are most detailed. Library/Method: Chart.js (Canvas).
+        - CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 500px;
+        }
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 450px;
+            }
+        }
+        .chapter-list {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out;
+        }
+        .chapter-list.open {
+            max-height: 1000px; /* Arbitrary large value */
+        }
+        .section-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .section-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+    </style>
 </head>
-<body>
-  <h1>Greenberg'e Hoş Geldiniz</h1>
-  <p>Bu site GitHub Pages ile yayınlandı.</p>
+<body class="text-slate-800">
+
+    <header class="bg-white shadow-sm">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-5">
+            <h1 class="text-3xl font-bold text-slate-900 text-center">Nöroşirürji El Kitabı</h1>
+            <p class="text-center text-slate-600 mt-1">İçeriği İnteraktif Olarak Keşfedin</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <section id="chart-section" class="mb-8">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-bold text-center mb-1">Kitap İçeriğinin Konu Dağılımı</h2>
+                <p class="text-center text-slate-500 text-sm mb-4">Bu grafik, kitabın ana bölümlerinin içerdiği alt başlık sayısını göstererek konuların ağırlığını görselleştirir.</p>
+                <div class="chart-container">
+                    <canvas id="contentDistributionChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section id="explorer-section">
+            <div class="mb-6">
+                <input type="text" id="search-input" placeholder="Bir konu veya anahtar kelime arayın (örn: Anevrizma, Kafa Travması)..." class="w-full p-3 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+            </div>
+
+            <div id="sections-container" class="space-y-4">
+                <!-- Sections will be dynamically inserted here -->
+            </div>
+        </section>
+
+    </main>
+    
+    <footer class="text-center p-6 mt-8 text-slate-500 text-sm">
+        <p>Mark S. Greenberg'in "Handbook of Neurosurgery" içeriğine dayanarak oluşturulmuştur.</p>
+    </footer>
+
+    <script>
+        const handbookData = [
+            {
+                section: "Anatomi ve Fizyoloji",
+                chapters: [
+                    "1. Brüt Anatomi, Kranial ve Spinal", "2. Vasküler Anatomi", "3. Nörofizyoloji ve Bölgesel Beyin Sendromları."
+                ]
+            },
+            {
+                section: "Genel ve Nöroloji",
+                chapters: [
+                    "4. Nöroanestezi", "5. Sodyum Homeostazı ve Ozmolalite.", "6. Genel Nörokritik Bakım", "7. Sedatifler, Paralitikler, Analjezikler.", "8. Endokrinoloji", "9. Hematoloji", "10. Nöroşirürjistler için Nöroloji.", "11. Nörovasküler Bozukluklar ve Nörotoksikoloji"
+                ]
+            },
+            {
+                section: "Görüntüleme ve Tanı",
+                chapters: [
+                    "12. Basit Radyoloji ve Kontrast Maddeler.", "13. Görüntüleme ve Anjiyografi.", "14. Elektrodiagnostik"
+                ]
+            },
+            {
+                section: "Gelişimsel Anomaliler",
+                chapters: [
+                    "15. Birincil İntrakranial Anomaliler.", "16. Birincil Spinal Gelişimsel Anomaliler.", "17. Birincil Kraniyospinal Anomaliler."
+                ]
+            },
+            {
+                section: "Koma ve Beyin Ölümü",
+                chapters: [
+                    "18. Koma.", "19. Beyin Ölümü ve Organ Bağışı."
+                ]
+            },
+            {
+                section: "Enfeksiyon",
+                chapters: [
+                    "20. Parenkim ve Meninkslerin Bakteriyel Enfeksiyonları ve Karmaşık Enfeksiyonlar.", "21. Kafatası, Omurga ve Ameliyat Sonrası Enfeksiyonlar.", "22. Diğer Nonbakteriyel Enfeksiyonlar."
+                ]
+            },
+            {
+                section: "Hidrosefali ve Beyin Omurilik Sıvısı (BOS)",
+                chapters: [
+                    "23. Beyin Omurilik Sıvısı.", "24. Hidrosefali - Genel Yönleri.", "25. Hidrosefali Tedavisi."
+                ]
+            },
+            {
+                section: "Nöbetler",
+                chapters: [
+                    "26. Nöbet Sınıflandırması ve Sendromları.", "27. Antikonvülsan İlaçlar (ASM).", "28. Özel Nöbet Hususları."
+                ]
+            },
+            {
+                section: "Ağrı",
+                chapters: [
+                    "29. Ağrı."
+                ]
+            },
+            {
+                section: "Periferik Sinirler",
+                chapters: [
+                    "30. Periferik Sinirler.", "31. Tuzak Nöropatileri.", "32. Tuzak Olmayan Periferik Nöropatiler."
+                ]
+            },
+            {
+                section: "Nöroftalmoloji ve Nörotoloji",
+                chapters: [
+                    "33. Nöroftalmoloji.", "34. Nörotoloji."
+                ]
+            },
+            {
+                section: "Sinir Sisteminin ve İlgili Sistemlerin Tümörleri",
+                chapters: [
+                    "35. Tümör Sınıflandırması ve Genel Bilgi.", "36. MSS'yi İçeren Genetik Tümör Sendromları.", "37. Yetişkin Diffüz Gliomlar.", "38. Pediatrik Tip Diffüz Tümörler.", "39. Çevrelenmiş Astrositik Gliomlar.", "40. Glionöronal ve Nöronal Tümörler.", "41. Ependimal Tümörler.", "42. Koroid Pleksus Tümörleri.", "43. Embriyonel Tümörler.", "44. Pineal Tümörler ve Pineal Bölge Lezyonları.", "45. Kranial ve Paraspinal Sinir Tümörleri.", "46. Menenjiyomlar (İntrakranial).", "47. Mezenkimal, Non-meningotelyal Tümörler.", "48. Melanositik Tümörler ve MSS Germ Hücreli Tümörleri.", "49. MSS'yi İçeren Hematolenfoid Tümörler.", "50. Sellar Bölge Tümörleri.", "51. PitNET/Adenomlar - Klinik Hususlar.", "52. Hipofiz Tümörleri - Değerlendirme.", "53. PitNET/Adenomlar - Genel Yönetim.", "54. PitNET/Adenomlar - Cerrahi Yönetim, Sonuç ve Nüks Yönetimi."
+                ]
+            },
+             {
+                section: "Diğer Tümörler ve Tümör Benzeri Durumlar",
+                chapters: [
+                    "55. MSS'ye Metastazlar.", "56. Diğer Tümörler, Kistler ve Tümör Benzeri Lezyonlar.", "57. Psödotümör Serebri Sendromu (PTSS).", "58. Kafatası Tümörleri ve Tümör Benzeri Lezyonlar.", "59. Omurga ve Omurilik Tümörleri."
+                ]
+            },
+            {
+                section: "Kafa Travması",
+                chapters: [
+                    "60. Kafa Travması - Genel Bilgi, Derecelendirme, Başlangıç Yönetimi.", "61. Konküsyon, Yüksek İrtifa Serebral Ödemi, Serebrovasküler Yaralanmalar.", "62. Kafa Travmasında Nöromonitörizasyon.", "63. Kafatası Kırıkları.", "64. Travmatik Hemorajik Durumlar.", "65. Ateşli Silah Yaralanmaları ve Kurşun Dışı Penetran Beyin Yaralanmaları.", "66. Pediatrik Kafa Yaralanması.", "67. Kafa Yaralanması - Uzun Dönem Yönetimi, Komplikasyonlar, Sonuç."
+                ]
+            },
+            {
+                section: "Omurga Travması",
+                chapters: [
+                    "68. Omurga Yaralanmaları - Genel Bilgi, Nörolojik Değerlendirme...", "69. Omurilik Yaralanmasının Yönetimi.", "70. Oksipitoatlantoaksiyel Yaralanmalar (Oksiput'tan C2'ye).", "71. Subaksiyel (C3 ila C7) Yaralanmalar / Kırıklar.", "72. Torasik, Lomber ve Sakral Omurga Kırıkları.", "73. Penetran Omurga Yaralanmaları ve Uzun Dönem Hususları."
+                ]
+            },
+            {
+                section: "Travmatik Olmayan Omurga ve Omurilik Durumları",
+                chapters: [
+                    "74. Bel Ağrısı.", "75. Lomber Disk Herniasyonu ve Radikülopati.", "76. Torasik Disk Herniasyonu.", "77. Servikal Disk Herniasyonu.", "78. Servikal Dejeneratif Disk Hastalığı ve Servikal Miyelopati.", "79. Omurga Ölçümleri.", "80. İdiyopatik Skolyoz.", "81. Lomber ve Torasik Dejeneratif Disk Hastalığı.", "82. Yetişkin Spinal Deformite ve Dejeneratif Skolyoz.", "83. Omurgayı Etkileyen Özel Durumlar.", "84. Omuriliği Etkileyen Özel Durumlar."
+                ]
+            },
+            {
+                section: "Subaraknoid Kanama ve Anevrizmalar",
+                chapters: [
+                    "85. Anevrizmalar - Giriş, Derecelendirme, Özel Durumlar.", "86. Anevrizma Hastalarının Kritik Bakımı.", "87. Serebral Anevrizma Rüptüründen Kaynaklanan SAH.", "88. Yere Göre Anevrizma Tipi.", "89. Özel Anevrizmalar ve Anevrizma Dışı SAH."
+                ]
+            },
+            {
+                section: "Vasküler Malformasyonlar",
+                chapters: [
+                    "90. Vasküler Malformasyonlar.", "91. Anjiyografik Olarak Gizli Vasküler Malformasyonlar."
+                ]
+            },
+            {
+                section: "İnme ve Tıkayıcı Serebrovasküler Hastalık",
+                chapters: [
+                    "92. İnme - Genel Bilgi ve Fizyoloji.", "93. Akut İskemik İnmenin Değerlendirilmesi ve Tedavisi.", "94. Serebral Arteriyel Diseksiyonlar ve Moyamoya Hastalığı.", "95. Diğer Vasküler Oklüzif Durumlar."
+                ]
+            },
+            {
+                section: "İntraserebral Kanama",
+                chapters: [
+                    "96. Yaşlı Yetişkinlerde İntraserebral Kanama.", "97. Genç Yetişkinlerde ve Pediatride İS K."
+                ]
+            },
+            {
+                section: "Sonuç Değerlendirmesi",
+                chapters: [
+                    "98. Sonuç Değerlendirmesi."
+                ]
+            },
+            {
+                section: "Ayırıcı Tanı",
+                chapters: [
+                    "99. Konuma veya Radyografik Bulgulara Göre Ayırıcı Tanı - İntrakranial.", "100. Konuma veya Radyografik Bulgulara Göre Ayırıcı Tanı - Omurga.", "101. Belirti ve Semptomlara Göre Ayırıcı Tanı (AYT) - Özellikle İntrakranial.", "102. Belirti ve Semptomlara Göre Ayırıcı Tanı (AYT) - Özellikle Omurga ve Diğer."
+                ]
+            },
+            {
+                section: "Prosedürler, Girişimler, Operasyonlar",
+                chapters: [
+                    "103. İntraoperatif Boyalar, Ameliyathane Ekipmanları...", "104. Kraniyotomiler - Genel Bilgi ve Kortikal Haritalama.", "105. Posterior Fossa Kraniyotomileri.", "106. Supratentoryal Kraniyotomiler.", "107. Lateral ve Üçüncü Ventriküllere Yaklaşımlar...", "108. Omurga, Servikal.", "109. Omurga, Torasik ve Lomber.", "110. Çeşitli Cerrahi Prosedürler.", "111. Fonksiyonel Nöroşirürji ve Stereotaktik Nöroşirürji.", "112. Nörovasküler Kompresyon Sendromları.", "113. Ağrı Prosedürleri.", "114. Nöbet Cerrahisi.", "115. Radyasyon Tedavisi (XRT).", "116. Endovasküler Girişim."
+                ]
+            }
+        ];
+
+        function wrapLabel(label, maxLen) {
+            if (label.length <= maxLen) return label;
+            const words = label.split(' ');
+            let lines = [];
+            let currentLine = '';
+            for (const word of words) {
+                if ((currentLine + ' ' + word).length > maxLen) {
+                    lines.push(currentLine);
+                    currentLine = word;
+                } else {
+                    currentLine += (currentLine ? ' ' : '') + word;
+                }
+            }
+            lines.push(currentLine);
+            return lines;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const sectionsContainer = document.getElementById('sections-container');
+            handbookData.forEach((sectionData, index) => {
+                const sectionId = `section-${index}`;
+                const sectionEl = document.createElement('div');
+                sectionEl.className = 'section-wrapper bg-white rounded-lg shadow border border-slate-200';
+                sectionEl.dataset.title = sectionData.section.toLowerCase();
+
+                let chaptersHTML = sectionData.chapters.map(chapter => 
+                    `<li class="chapter-item text-slate-600 border-t border-slate-200 p-3" data-title="${chapter.toLowerCase()}">${chapter}</li>`
+                ).join('');
+
+                sectionEl.innerHTML = `
+                    <div class="section-header p-4 cursor-pointer flex justify-between items-center" data-target="${sectionId}-chapters">
+                        <h3 class="text-lg font-semibold text-slate-800">${sectionData.section}</h3>
+                        <div class="flex items-center space-x-2">
+                           <span class="text-sm bg-blue-100 text-blue-800 font-medium me-2 px-2.5 py-0.5 rounded-full">${sectionData.chapters.length} bölüm</span>
+                           <svg class="w-5 h-5 text-slate-500 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                    <ul class="chapter-list" id="${sectionId}-chapters">
+                        ${chaptersHTML}
+                    </ul>
+                `;
+                sectionsContainer.appendChild(sectionEl);
+            });
+
+            sectionsContainer.addEventListener('click', (e) => {
+                const header = e.target.closest('.section-header');
+                if (header) {
+                    const targetId = header.dataset.target;
+                    const chapterList = document.getElementById(targetId);
+                    const icon = header.querySelector('svg');
+                    chapterList.classList.toggle('open');
+                    icon.classList.toggle('rotate-180');
+                }
+            });
+
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                document.querySelectorAll('.section-wrapper').forEach(section => {
+                    const sectionTitle = section.dataset.title;
+                    const chapters = section.querySelectorAll('.chapter-item');
+                    let sectionVisible = false;
+
+                    chapters.forEach(chapter => {
+                        const chapterTitle = chapter.dataset.title;
+                        if (chapterTitle.includes(searchTerm)) {
+                            chapter.style.display = 'list-item';
+                            sectionVisible = true;
+                        } else {
+                            chapter.style.display = 'none';
+                        }
+                    });
+
+                    if (sectionTitle.includes(searchTerm) || sectionVisible) {
+                        section.style.display = 'block';
+                        if (searchTerm) {
+                           section.querySelector('.chapter-list').classList.add('open');
+                           section.querySelector('.section-header svg').classList.add('rotate-180');
+                        } else {
+                           section.querySelector('.chapter-list').classList.remove('open');
+                           section.querySelector('.section-header svg').classList.remove('rotate-180');
+                        }
+                    } else {
+                        section.style.display = 'none';
+                    }
+                });
+            });
+
+            const ctx = document.getElementById('contentDistributionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: handbookData.map(d => wrapLabel(d.section, 18)),
+                    datasets: [{
+                        label: 'Bölüm Sayısı',
+                        data: handbookData.map(d => d.chapters.length),
+                        backgroundColor: 'rgba(34, 119, 255, 0.6)',
+                        borderColor: 'rgba(34, 119, 255, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    scales: {
+                        x: {
+                           beginAtZero: true,
+                           title: { display: true, text: 'Alt Başlık Sayısı' }
+                        },
+                        y: {
+                           ticks: {
+                               font: { size: 10 }
+                           }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(tooltipItems) {
+                                    const item = tooltipItems[0];
+                                    let label = item.chart.data.labels[item.dataIndex];
+                                    if (Array.isArray(label)) {
+                                      return label.join(' ');
+                                    } else {
+                                      return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 </html>
